@@ -1,8 +1,30 @@
-import { Link, Outlet } from 'react-router-dom';
+import {Link, Outlet, useNavigate, useParams} from 'react-router-dom';
+import {useMutation} from '@tanstack/react-query';
 
 import Header from '../Header.jsx';
+import {useQuery} from '@tanstack/react-query';
+import {deleteEvent, fetchEvent, queryClient} from '../../util/http.js';
+import ErrorBlock from '../UI/ErrorBlock.jsx';
 
-export default function EventDetails() {
+export default function EventDetails () {
+  const navigate = useNavigate();
+  const {id} = useParams();
+  const {data, isPending, isError, error} = useQuery({
+    queryKey: ['event'],
+    queryFn: ({signal}) => fetchEvent({id, signal})
+  });
+  const {mutate} = useMutation({
+    mutationFn: deleteEvent,
+    onSuccess: () => {
+      console.log('success');
+      queryClient.invalidateQueries({queryKey: ['events']});
+      navigate('/events');
+    }
+  });
+
+  const handleDeleteEvent = () => {
+    mutate({id});
+  };
   return (
     <>
       <Outlet />
@@ -11,25 +33,27 @@ export default function EventDetails() {
           View all Events
         </Link>
       </Header>
-      <article id="event-details">
+      {isPending && <p>Loading event...</p>}
+      {isError && <ErrorBlock title="An error occurred." message={error.info?.message || 'Failed to fetch events'} />}
+      {data && <article id="event-details">
         <header>
-          <h1>EVENT TITLE</h1>
+          <h1>{data.title}</h1>
           <nav>
-            <button>Delete</button>
+            <button onClick={handleDeleteEvent}>Delete</button>
             <Link to="edit">Edit</Link>
           </nav>
         </header>
         <div id="event-details-content">
-          <img src="" alt="" />
+          <img src={'http://localhost:3000/' + data.image} alt="" />
           <div id="event-details-info">
             <div>
-              <p id="event-details-location">EVENT LOCATION</p>
-              <time dateTime={`Todo-DateT$Todo-Time`}>DATE @ TIME</time>
+              <p id="event-details-location">{data.location}</p>
+              <time dateTime={`Todo-DateT$Todo-Time`}>{data.date} @ {data.time}</time>
             </div>
-            <p id="event-details-description">EVENT DESCRIPTION</p>
+            <p id="event-details-description">{data.description}</p>
           </div>
         </div>
-      </article>
+      </article>}
     </>
   );
 }
