@@ -1,45 +1,67 @@
+import {useState} from 'react';
 import {Link, Outlet, useNavigate, useParams} from 'react-router-dom';
-import {useMutation} from '@tanstack/react-query';
+import {useMutation, useQuery} from '@tanstack/react-query';
 
-import Header from '../Header.jsx';
-import {useQuery} from '@tanstack/react-query';
 import {deleteEvent, fetchEvent, queryClient} from '../../util/http.js';
+import Header from '../Header.jsx';
+import Modal from '../UI/Modal.jsx';
+import LoadingIndicator from '../UI/LoadingIndicator.jsx';
 import ErrorBlock from '../UI/ErrorBlock.jsx';
 
 export default function EventDetails () {
+  const [isDeleting, setIsDeleting] = useState(false);
   const navigate = useNavigate();
   const {id} = useParams();
   const {data, isPending, isError, error} = useQuery({
-    queryKey: ['event'],
+    queryKey: ['events', {id}],
     queryFn: ({signal}) => fetchEvent({id, signal})
   });
-  const {mutate} = useMutation({
+  const {mutate, isPending: deletePending, isError: isDeletionError, error: deletionError} = useMutation({
     mutationFn: deleteEvent,
     onSuccess: () => {
-      console.log('success');
-      queryClient.invalidateQueries({queryKey: ['events']});
+      queryClient.invalidateQueries({queryKey: ['events'], refetchType: 'none'});
       navigate('/events');
     }
   });
+
+  const handleStartDeletion = () => {
+    setIsDeleting(true);
+  };
+  const handleCancelDeletion = () => {
+    setIsDeleting(false);
+  };
 
   const handleDeleteEvent = () => {
     mutate({id});
   };
   return (
     <>
+      {isDeleting && <Modal onClose={handleCancelDeletion}>
+        <h2>Are you sure?</h2>
+        <p>This action cannot be undone.</p>
+        <div className="form-actions">
+          {deletePending ? <LoadingIndicator /> :
+            <>
+              <button onClick={handleCancelDeletion} className='button-text'>Cancel</button>
+              <button onClick={handleDeleteEvent} className='button'>Delete</button>
+            </>}
+        </div>
+        {isDeletionError && <ErrorBlock title='An error occurred.' message={deletionError.info?.message || 'Try again later.'} />}
+      </Modal>}
       <Outlet />
       <Header>
         <Link to="/events" className="nav-item">
           View all Events
         </Link>
       </Header>
-      {isPending && <p>Loading event...</p>}
-      {isError && <ErrorBlock title="An error occurred." message={error.info?.message || 'Failed to fetch events'} />}
+      {isPending && <div id='event-details-content' className='center'><p>Loading event...</p></div>}
+      {isError && <div id='event-details-content' className='center'><ErrorBlock title="An error occurred." message={error.info?.message || 'Failed to fetch events'} /></div>}
+      {/* {deletePending && <div id='event-details-content' className='center'><LoadingIndicator /></div>} */}
       {data && <article id="event-details">
         <header>
           <h1>{data.title}</h1>
           <nav>
-            <button onClick={handleDeleteEvent}>Delete</button>
+            <button onClick={handleStartDeletion}>Delete</button>
             <Link to="edit">Edit</Link>
           </nav>
         </header>
