@@ -112,6 +112,7 @@ app.post('/events', async (req, res) => {
 app.put('/events/:id', async (req, res) => {
   const { id } = req.params;
   const { event } = req.body;
+  console.log(id, event);
 
   if (!event) {
     return res.status(400).json({ message: 'Event is required' });
